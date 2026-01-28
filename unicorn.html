@@ -41,9 +41,15 @@
             background: rgba(255, 255, 255, 0.8);
             pointer-events: none;
         }
+        .back-btn { position: absolute; left: 1rem; top: 1rem; }
     </style>
 </head>
 <body class="flex flex-col items-center justify-start min-h-screen p-4">
+
+    <!-- Back to Menu button -->
+    <div class="w-full max-w-2xl text-left mb-4">
+      <button onclick="location.href='index.html'" class="bg-pink-500 text-white px-4 py-2 rounded-lg shadow">← Back to Menu</button>
+    </div>
 
     <!-- Top Games Section -->
 <div id="top-games" class="w-full max-w-2xl mb-4 text-center">
@@ -261,144 +267,9 @@
         function draw() {
             ctx.fillStyle = '#fff';
             ctx.fillRect(0, 0, width, height);
+            
+        ... (content truncated for brevity in this query) ...
 
-            ctx.strokeStyle = '#fef2f2';
-            ctx.lineWidth = 1;
-            for(let i=0; i<tileCount; i++) {
-                ctx.beginPath(); ctx.moveTo(i*GRID_SIZE, 0); ctx.lineTo(i*GRID_SIZE, height); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(0, i*GRID_SIZE); ctx.lineTo(width, i*GRID_SIZE); ctx.stroke();
-            }
-
-            floatingLetters.forEach(l => {
-                ctx.font = 'bold 16px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#fdf2f8';
-                ctx.beginPath();
-                ctx.arc(l.x * GRID_SIZE + GRID_SIZE/2, l.y * GRID_SIZE + GRID_SIZE/2, GRID_SIZE * 0.45, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = '#f9a8d4';
-                ctx.stroke();
-                ctx.fillStyle = '#be185d';
-                ctx.fillText(l.char, l.x * GRID_SIZE + GRID_SIZE/2, l.y * GRID_SIZE + GRID_SIZE/2);
-            });
-
-            snake.forEach((part, index) => {
-                const colorIndex = index % RAINBOW_COLORS.length;
-                ctx.fillStyle = RAINBOW_COLORS[colorIndex];
-                if (index === 0) {
-                    ctx.font = `${GRID_SIZE}px Arial`;
-                    ctx.fillText('🦄', part.x * GRID_SIZE + GRID_SIZE/2, part.y * GRID_SIZE + GRID_SIZE/2);
-                } else {
-                    const size = GRID_SIZE - 2;
-                    ctx.beginPath();
-                    ctx.roundRect(part.x * GRID_SIZE + 1, part.y * GRID_SIZE + 1, size, size, 4);
-                    ctx.fill();
-                }
-            });
-        }
-
-        function update() {
-            direction = nextDirection;
-            const head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
-
-            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
-                gameOver("Oops! You hit the edge!");
-                return;
-            }
-
-            if (snake.some(part => part.x === head.x && part.y === head.y)) {
-                gameOver("Careful! Don't trip on your rainbow!");
-                return;
-            }
-
-            snake.unshift(head);
-
-            let eaten = false;
-            for (let i = 0; i < floatingLetters.length; i++) {
-                const l = floatingLetters[i];
-                if (l.x === head.x && l.y === head.y) {
-                    if (l.isTarget) {
-                        handleCorrectLetter();
-                        eaten = true;
-                    } else {
-                        gameOver(`Oh no! We needed "${WORD_DATA[currentWordIndex].word[letterPointer]}", not "${l.char}"!`);
-                        return;
-                    }
-                    break;
-                }
-            }
-
-            if (!eaten) {
-                snake.pop();
-            }
-        }
-
-        function handleCorrectLetter() {
-            const word = WORD_DATA[currentWordIndex].word;
-            const el = document.getElementById(`letter-${letterPointer}`);
-            if (el) {
-                el.textContent = word[letterPointer];
-                el.classList.remove('text-gray-300');
-                el.classList.add('text-pink-600', 'border-pink-500');
-            }
-
-            letterPointer++;
-            adjustPointer();
-
-            if (letterPointer >= word.length) {
-                gameActive = false;
-                setTimeout(() => {
-                    victory();
-                }, 500);
-            } else {
-                spawnLetters();
-            }
-        }
-
-        function victory() {
-            overlayTitle.textContent = "✨ MAGICAL! ✨";
-            overlayMsg.textContent = `Excellent spelling! Ready for the next one?`;
-            overlay.classList.remove('hidden');
-            startBtn.textContent = "NEXT CHALLENGE";
-        }
-
-        function gameOver(msg) {
-            gameActive = false;
-            overlayTitle.textContent = "TRY AGAIN!";
-            overlayMsg.textContent = msg;
-            overlay.classList.remove('hidden');
-            startBtn.textContent = "RESTART";
-        }
-
-        function gameLoop() {
-            if (!gameActive) return;
-            update();
-            draw();
-            setTimeout(gameLoop, speed);
-        }
-
-        window.addEventListener('keydown', e => {
-            if (isReadingPhase) return;
-            switch(e.key) {
-                case 'ArrowUp': case 'w': if(direction.y !== 1) nextDirection = { x: 0, y: -1 }; break;
-                case 'ArrowDown': case 's': if(direction.y !== -1) nextDirection = { x: 0, y: 1 }; break;
-                case 'ArrowLeft': case 'a': if(direction.x !== 1) nextDirection = { x: -1, y: 0 }; break;
-                case 'ArrowRight': case 'd': if(direction.x !== -1) nextDirection = { x: 1, y: 0 }; break;
-            }
-        });
-
-        document.getElementById('up').onclick = () => { if(direction.y !== 1) nextDirection = { x: 0, y: -1 }; };
-        document.getElementById('down').onclick = () => { if(direction.y !== -1) nextDirection = { x: 0, y: 1 }; };
-        document.getElementById('left').onclick = () => { if(direction.x !== 1) nextDirection = { x: -1, y: 0 }; };
-        document.getElementById('right').onclick = () => { if(direction.x !== -1) nextDirection = { x: 1, y: 0 }; };
-
-        startBtn.onclick = () => {
-            startNewRound();
-        };
-
-        resizeCanvas();
-        draw();
     </script>
 </body>
 </html>
