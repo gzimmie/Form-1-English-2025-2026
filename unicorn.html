@@ -120,6 +120,9 @@
         let floatingLetters = [];
         let speed = 250;
 
+        let directionQueue = []; // Queue for directional inputs
+        let direction = { x: 0, y: -1 }; // Initial direction for the unicorn
+
         const WORD_DATA = [
             { word: "CHINESE NEW YEAR", definition: "The biggest Chinese holiday. Families eat together, give red packets, and celebrate a new year." },
             { word: "EASTER", definition: "A spring holiday. Many people eat chocolate eggs and look for hidden eggs." },
@@ -144,27 +147,36 @@
             tileCount = width / GRID_SIZE;
         }
 
-        window.addEventListener('keydown', (e) => {
-             // Prevent default behavior for arrow keys
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                e.preventDefault(); // Stop the page from scrolling
-                }
+        let directionQueue = []; // Queue for directional inputs
 
-            if (isReadingPhase) return; // Game-specific logic
-                switch (e.key) {
-                    case 'ArrowUp': case 'w':
-                        if (direction.y !== 1) nextDirection = { x: 0, y: -1 }; 
-                        break;
-                    case 'ArrowDown': case 's':
-                        if (direction.y !== -1) nextDirection = { x: 0, y: 1 }; 
-                        break;
-                    case 'ArrowLeft': case 'a':
-                        if (direction.x !== 1) nextDirection = { x: -1, y: 0 }; 
-                        break;
-                    case 'ArrowRight': case 'd':
-                        if (direction.x !== -1) nextDirection = { x: 1, y: 0 }; 
-                        break;
-              }
+        window.addEventListener('keydown', (e) => {
+            // Prevent default scrolling behavior for arrow keys
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+            }
+        
+            let newDirection;
+            switch (e.key) {
+                case 'ArrowUp': case 'w':
+                    newDirection = { x: 0, y: -1 }; // Move up
+                    break;
+                case 'ArrowDown': case 's':
+                    newDirection = { x: 0, y: 1 }; // Move down
+                    break;
+                case 'ArrowLeft': case 'a':
+                    newDirection = { x: -1, y: 0 }; // Move left
+                    break;
+                case 'ArrowRight': case 'd':
+                    newDirection = { x: 1, y: 0 }; // Move right
+                    break;
+                default:
+                    return; // Ignore other keys
+            }
+        
+            // Add to the queue only if not duplicating the current direction
+            if (directionQueue.length < 2) { // Limit queue size
+                directionQueue.push(newDirection);
+            }
         });
 
         function startNewRound() {
@@ -344,6 +356,15 @@
             }
         }
 
+        function processDirectionQueue() {
+            if (directionQueue.length > 0) {
+                const nextDirection = directionQueue.shift();
+                if (nextDirection.x !== -direction.x || nextDirection.y !== -direction.y) {
+                    direction = nextDirection;
+                }
+            }
+        }
+        
         function handleCorrectLetter() {
             const word = WORD_DATA[currentWordIndex].word;
             const el = document.getElementById(`letter-${letterPointer}`);
@@ -383,8 +404,12 @@
 
         function gameLoop() {
             if (!gameActive) return;
+
+            processDirectionQueue(); // Process the queued direction
+
             update();
             draw();
+
             setTimeout(gameLoop, speed);
         }
 
