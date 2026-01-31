@@ -45,10 +45,6 @@
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4">
 
-    <div class="w-full max-w-2xl text-left mb-4">
-      <button onclick="location.href='index.html'" class="bg-pink-500 text-white px-4 py-2 rounded-lg shadow">← Back to Menu</button>
-    </div>
-
     <!-- Header / UI -->
     <div class="w-full max-w-2xl mb-4 text-center">
         <h1 class="text-3xl font-bold text-pink-600 mb-2">✨ Unicorn Spelling Quest ✨</h1>
@@ -73,3 +69,346 @@
         </div>
 
         <!-- Start/Game Over Overlay -->
+        <div id="overlay" class="absolute inset-0 flex items-center justify-center modal z-20">
+            <div class="text-center p-8">
+                <h2 id="overlay-title" class="text-4xl font-black text-pink-500 mb-4">READY?</h2>
+                <p id="overlay-msg" class="text-gray-600 mb-6 font-semibold">Spell the word by collecting letters in order!</p>
+                <button id="start-btn" class="bg-pink-500 hover:bg-pink-600 text-white px-8 py-3 rounded-full text-xl font-bold transition-transform active:scale-95 shadow-lg">
+                    START ADVENTURE
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls Info (Desktop) -->
+    <p class="mt-4 text-gray-500 text-sm hidden md:block">Use Arrow Keys or WASD to guide the Unicorn</p>
+    
+    <!-- Mobile Controls -->
+    <div class="grid grid-cols-3 gap-2 mt-4 md:hidden">
+        <div></div>
+        <button id="up" class="bg-pink-100 p-4 rounded-lg text-2xl">UP</button>
+        <div></div>
+        <button id="left" class="bg-pink-100 p-4 rounded-lg text-2xl">LEFT</button>
+        <button id="down" class="bg-pink-100 p-4 rounded-lg text-2xl">DOWN</button>
+        <button id="right" class="bg-pink-100 p-4 rounded-lg text-2xl">RIGHT</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const definitionEl = document.getElementById('definition');
+        const wordDisplayEl = document.getElementById('word-display');
+        const overlay = document.getElementById('overlay');
+        const countdownOverlay = document.getElementById('countdown-overlay');
+        const countdownNumber = document.getElementById('countdown-number');
+        const startBtn = document.getElementById('start-btn');
+        const overlayTitle = document.getElementById('overlay-title');
+        const overlayMsg = document.getElementById('overlay-msg');
+        const timerBar = document.getElementById('timer-bar');
+
+        const GRID_SIZE = 20;
+        let tileCount;
+        let width, height;
+
+        let snake = [];
+        let direction = { x: 0, y: 0 };
+        let nextDirection = { x: 0, y: 0 };
+        let gameActive = false;
+        let isReadingPhase = false;
+        let currentWordIndex = 0;
+        let letterPointer = 0;
+        let floatingLetters = [];
+        let speed = 250;
+
+        const WORD_DATA = [
+            { word: "CHINESE NEW YEAR", definition: "The biggest Chinese holiday. Families eat together, give red packets, and celebrate a new year." },
+            { word: "EASTER", definition: "A spring holiday. Many people eat chocolate eggs and look for hidden eggs." },
+            { word: "MID-AUTUMN FESTIVAL", definition: "A moon festival in autumn. People eat mooncakes and carry lanterns at night." },
+            { word: "CHRISTMAS", definition: "A holiday on December 25th. People give gifts and decorate trees with their families." },
+            { word: "HALLOWEEN", definition: "A scary fun night. Children wear costumes and ask for sweets from neighbours." },
+            { word: "VALENTINE'S DAY", definition: "A day for love. People give cards, flowers, or chocolate to someone special." },
+            { word: "DRAGON BOAT FESTIVAL", definition: "A summer holiday with exciting boat races. People eat zongzi, sticky rice wrapped in leaves." },
+            { word: "CHRISTMAS PUDDING", definition: "A special dark, sweet cake eaten during the holidays. It is often made with dried fruit." },
+            { word: "SWEETS", definition: "Small treats you eat like chocolate, candy, and jelly beans." },
+            { word: "ROAST TURKEY", definition: "A large bird that is cooked in an oven. It is the main dish for Christmas dinner." }
+        ];
+
+        const RAINBOW_COLORS = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#8B00FF'];
+
+        function resizeCanvas() {
+            const size = Math.min(window.innerWidth - 40, 600);
+            canvas.width = size - (size % GRID_SIZE);
+            canvas.height = size - (size % GRID_SIZE);
+            width = canvas.width;
+            height = canvas.height;
+            tileCount = width / GRID_SIZE;
+        }
+
+        window.addEventListener('keydown', (e) => {
+             // Prevent default behavior for arrow keys
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault(); // Stop the page from scrolling
+                }
+
+            if (isReadingPhase) return; // Game-specific logic
+                switch (e.key) {
+                    case 'ArrowUp': case 'w':
+                        if (direction.y !== 1) nextDirection = { x: 0, y: -1 }; 
+                        break;
+                    case 'ArrowDown': case 's':
+                        if (direction.y !== -1) nextDirection = { x: 0, y: 1 }; 
+                        break;
+                    case 'ArrowLeft': case 'a':
+                        if (direction.x !== 1) nextDirection = { x: -1, y: 0 }; 
+                        break;
+                    case 'ArrowRight': case 'd':
+                        if (direction.x !== -1) nextDirection = { x: 1, y: 0 }; 
+                        break;
+              }
+        });
+
+        function startNewRound() {
+            isReadingPhase = true;
+            gameActive = false;
+            overlay.classList.add('hidden');
+            
+            snake = [
+                { x: 10, y: 10 },
+                { x: 10, y: 11 },
+                { x: 10, y: 12 }
+            ];
+            direction = { x: 0, y: -1 };
+            nextDirection = { x: 0, y: -1 };
+            letterPointer = 0;
+            
+            // Pick word
+            currentWordIndex = Math.floor(Math.random() * WORD_DATA.length);
+            
+            setupWordUI();
+            spawnLetters();
+            draw(); // Draw initial state
+
+            startReadingCountdown();
+        }
+
+        async function startReadingCountdown() {
+            countdownOverlay.classList.remove('hidden');
+            let timeLeft = 5;
+            
+            while (timeLeft > 0) {
+                countdownNumber.textContent = timeLeft;
+                timerBar.style.width = (timeLeft * 20) + "%";
+                await new Promise(r => setTimeout(r, 1000));
+                timeLeft--;
+            }
+            
+            timerBar.style.width = "0%";
+            countdownOverlay.classList.add('hidden');
+            isReadingPhase = false;
+            gameActive = true;
+            gameLoop();
+        }
+
+        function setupWordUI() {
+            const data = WORD_DATA[currentWordIndex];
+            definitionEl.textContent = data.definition;
+            wordDisplayEl.innerHTML = '';
+            
+            for (let i = 0; i < data.word.length; i++) {
+                const char = data.word[i];
+                const span = document.createElement('span');
+                if (char === ' ') {
+                    span.className = "w-4";
+                    span.textContent = "";
+                } else if (char === '-' || char === '\'') {
+                    span.className = "text-pink-400 font-bold text-xl";
+                    span.textContent = char;
+                } else {
+                    span.className = "w-8 h-10 border-b-4 border-pink-200 flex items-center justify-center text-xl font-bold text-gray-300 transition-colors";
+                    span.textContent = "?";
+                    span.id = `letter-${i}`;
+                }
+                wordDisplayEl.appendChild(span);
+            }
+            adjustPointer();
+        }
+
+        function adjustPointer() {
+            const word = WORD_DATA[currentWordIndex].word;
+            while (letterPointer < word.length && !/[A-Z]/.test(word[letterPointer])) {
+                letterPointer++;
+            }
+        }
+
+        function spawnLetters() {
+            floatingLetters = [];
+            const word = WORD_DATA[currentWordIndex].word;
+            const targetLetter = word[letterPointer];
+            
+            // Spawn the correct letter
+            floatingLetters.push({
+                char: targetLetter,
+                x: Math.floor(Math.random() * tileCount),
+                y: Math.floor(Math.random() * (tileCount - 2)), // Avoid top edge UI overlap
+                isTarget: true
+            });
+
+            // Spawn decoy letters
+            const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            for(let i = 0; i < 4; i++) {
+                let randomChar = alphabet[Math.floor(Math.random() * alphabet.length)];
+                if (randomChar === targetLetter) randomChar = 'X'; 
+                
+                floatingLetters.push({
+                    char: randomChar,
+                    x: Math.floor(Math.random() * tileCount),
+                    y: Math.floor(Math.random() * tileCount),
+                    isTarget: false
+                });
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = '#fef2f2';
+            ctx.lineWidth = 1;
+            for(let i=0; i<tileCount; i++) {
+                ctx.beginPath(); ctx.moveTo(i*GRID_SIZE, 0); ctx.lineTo(i*GRID_SIZE, height); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i*GRID_SIZE); ctx.lineTo(width, i*GRID_SIZE); ctx.stroke();
+            }
+
+            floatingLetters.forEach(l => {
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#fdf2f8';
+                ctx.beginPath();
+                ctx.arc(l.x * GRID_SIZE + GRID_SIZE/2, l.y * GRID_SIZE + GRID_SIZE/2, GRID_SIZE * 0.45, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#f9a8d4';
+                ctx.stroke();
+                ctx.fillStyle = '#be185d';
+                ctx.fillText(l.char, l.x * GRID_SIZE + GRID_SIZE/2, l.y * GRID_SIZE + GRID_SIZE/2);
+            });
+
+            snake.forEach((part, index) => {
+                const colorIndex = index % RAINBOW_COLORS.length;
+                ctx.fillStyle = RAINBOW_COLORS[colorIndex];
+                if (index === 0) {
+                    ctx.font = `${GRID_SIZE}px Arial`;
+                    ctx.fillText('🦄', part.x * GRID_SIZE + GRID_SIZE/2, part.y * GRID_SIZE + GRID_SIZE/2);
+                } else {
+                    const size = GRID_SIZE - 2;
+                    ctx.beginPath();
+                    ctx.roundRect(part.x * GRID_SIZE + 1, part.y * GRID_SIZE + 1, size, size, 4);
+                    ctx.fill();
+                }
+            });
+        }
+
+        function update() {
+            direction = nextDirection;
+            const head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+                gameOver("Oops! You hit the edge!");
+                return;
+            }
+
+            if (snake.some(part => part.x === head.x && part.y === head.y)) {
+                gameOver("Careful! Don't trip on your rainbow!");
+                return;
+            }
+
+            snake.unshift(head);
+
+            let eaten = false;
+            for (let i = 0; i < floatingLetters.length; i++) {
+                const l = floatingLetters[i];
+                if (l.x === head.x && l.y === head.y) {
+                    if (l.isTarget) {
+                        handleCorrectLetter();
+                        eaten = true;
+                    } else {
+                        gameOver(`Oh no! We needed "${WORD_DATA[currentWordIndex].word[letterPointer]}", not "${l.char}"!`);
+                        return;
+                    }
+                    break;
+                }
+            }
+
+            if (!eaten) {
+                snake.pop();
+            }
+        }
+
+        function handleCorrectLetter() {
+            const word = WORD_DATA[currentWordIndex].word;
+            const el = document.getElementById(`letter-${letterPointer}`);
+            if (el) {
+                el.textContent = word[letterPointer];
+                el.classList.remove('text-gray-300');
+                el.classList.add('text-pink-600', 'border-pink-500');
+            }
+
+            letterPointer++;
+            adjustPointer();
+
+            if (letterPointer >= word.length) {
+                gameActive = false;
+                setTimeout(() => {
+                    victory();
+                }, 500);
+            } else {
+                spawnLetters();
+            }
+        }
+
+        function victory() {
+            overlayTitle.textContent = "✨ MAGICAL! ✨";
+            overlayMsg.textContent = `Excellent spelling! Ready for the next one?`;
+            overlay.classList.remove('hidden');
+            startBtn.textContent = "NEXT CHALLENGE";
+        }
+
+        function gameOver(msg) {
+            gameActive = false;
+            overlayTitle.textContent = "TRY AGAIN!";
+            overlayMsg.textContent = msg;
+            overlay.classList.remove('hidden');
+            startBtn.textContent = "RESTART";
+        }
+
+        function gameLoop() {
+            if (!gameActive) return;
+            update();
+            draw();
+            setTimeout(gameLoop, speed);
+        }
+
+        window.addEventListener('keydown', e => {
+            if (isReadingPhase) return;
+            switch(e.key) {
+                case 'ArrowUp': case 'w': if(direction.y !== 1) nextDirection = { x: 0, y: -1 }; break;
+                case 'ArrowDown': case 's': if(direction.y !== -1) nextDirection = { x: 0, y: 1 }; break;
+                case 'ArrowLeft': case 'a': if(direction.x !== 1) nextDirection = { x: -1, y: 0 }; break;
+                case 'ArrowRight': case 'd': if(direction.x !== -1) nextDirection = { x: 1, y: 0 }; break;
+            }
+        });
+
+        document.getElementById('up').onclick = () => { if(direction.y !== 1) nextDirection = { x: 0, y: -1 }; };
+        document.getElementById('down').onclick = () => { if(direction.y !== -1) nextDirection = { x: 0, y: 1 }; };
+        document.getElementById('left').onclick = () => { if(direction.x !== 1) nextDirection = { x: -1, y: 0 }; };
+        document.getElementById('right').onclick = () => { if(direction.x !== -1) nextDirection = { x: 1, y: 0 }; };
+
+        startBtn.onclick = () => {
+            startNewRound();
+        };
+
+        resizeCanvas();
+        draw();
+    </script>
+</body>
+</html>
