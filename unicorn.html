@@ -8,10 +8,13 @@
     <style>
         body {
             background-color: #fdf2f8;
-            overflow: hidden;
-            touch-action: none;
+            /* allow vertical scrolling but prevent horizontal overflow */
+            overflow-y: auto;
+            overflow-x: hidden;
+            touch-action: manipulation;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+            min-height: 100vh;
+            }
         #game-container {
             position: relative;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
