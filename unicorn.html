@@ -17,10 +17,17 @@
             }
         #game-container {
             position: relative;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            background: #fff;
+            overflow: hidden;
+            max-width: 90%; /* Expand up to 90% of the viewport width */
+            margin: auto; /* Center align */
             border: 8px solid #f9a8d4;
             border-radius: 1rem;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%; /* Ensure full scaling */
+            height: auto; /* Keep proportions */
         }
         .rainbow-segment {
             transition: all 0.1s ease;
@@ -139,12 +146,13 @@
         const RAINBOW_COLORS = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#8B00FF'];
 
         function resizeCanvas() {
-            const size = Math.min(window.innerWidth - 40, 600);
-            canvas.width = size - (size % GRID_SIZE);
-            canvas.height = size - (size % GRID_SIZE);
+            const size = Math.min(window.innerWidth - 40, 800); // Adjusted max size
+            canvas.width = size; // Directly assign size
+            canvas.height = size; // Make width and height equal
             width = canvas.width;
             height = canvas.height;
-            tileCount = width / GRID_SIZE;
+            tileCount = Math.floor(width / GRID_SIZE); // Ensure grid alignment
+            console.log(`Canvas resized to ${width}x${height}`); // Debug
         }
 
         let directionQueue = []; // Queue for directional inputs
