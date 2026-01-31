@@ -173,7 +173,7 @@
 </div>
 
 <script>
-    const VOCABULARY = [
+    const VOCABULARY_DATA = [
         { word: "CARRY LANTERNS", def: "What children do during Mid-Autumn Festival; often red in color or shaped like fish" },
         { word: "DECORATE THE CHRISTMAS TREE", def: "An activity done before Christmas so that you can place presents underneath it" },
         { word: "EXCHANGE GIFTS", def: "One of the most exciting parts of Christmas--hopefully, you get something good" },
@@ -185,6 +185,8 @@
         { word: "CANDLE", def: "Something lit with fire to create light" },
         { word: "CELEBRATE", def: "Something we do to acknowledge something happy or exciting" }
     ];
+
+    let gameVocabulary = [];
 
     const gameContainer = document.getElementById('game-container');
     const basket = document.getElementById('basket');
@@ -235,6 +237,15 @@
         });
     }
 
+    function shuffleArray(array) {
+        const newArray = [...array];
+        for (let i = newArray.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+        }
+        return newArray;
+    }
+
     function updateBasket(x) {
         const basketWidth = basket.offsetWidth;
         let newX = x - basketWidth / 2;
@@ -244,6 +255,9 @@
     }
 
     function startGame() {
+        // Shuffle the words for each new game session
+        gameVocabulary = shuffleArray(VOCABULARY_DATA);
+        
         state.score = 0;
         state.currentWordIndex = 0;
         state.active = true;
@@ -256,14 +270,14 @@
     }
 
     function loadWord() {
-        if (state.currentWordIndex >= VOCABULARY.length) {
+        if (state.currentWordIndex >= gameVocabulary.length) {
             endGame(true);
             return;
         }
 
         state.isTransitioning = true;
         state.typedIndex = 0;
-        const currentWord = VOCABULARY[state.currentWordIndex];
+        const currentWord = gameVocabulary[state.currentWordIndex];
         
         defText.innerText = currentWord.def;
         wordDisplay.innerHTML = renderWordProgress();
@@ -286,7 +300,7 @@
     }
 
     function renderWordProgress() {
-        const word = VOCABULARY[state.currentWordIndex].word;
+        const word = gameVocabulary[state.currentWordIndex].word;
         return word.split('').map((char, i) => {
             if (char === ' ') return '&nbsp;&nbsp;';
             if (i < state.typedIndex) return `<span class="text-blue-600">${char}</span>`;
@@ -310,7 +324,7 @@
             type = 'bonus';
         } else {
             // Spawn letters. Focus on the required letter, but mix in others
-            const currentWord = VOCABULARY[state.currentWordIndex].word;
+            const currentWord = gameVocabulary[state.currentWordIndex].word;
             const targetChar = getNextTargetChar(currentWord, state.typedIndex);
             
             if (Math.random() < 0.6) {
@@ -399,7 +413,7 @@
             setTimeout(() => basket.classList.remove('shake'), 500);
             updateScore(-20);
         } else {
-            const currentWord = VOCABULARY[state.currentWordIndex].word;
+            const currentWord = gameVocabulary[state.currentWordIndex].word;
             const target = getNextTargetChar(currentWord, state.typedIndex);
 
             if (obj.value === target) {
